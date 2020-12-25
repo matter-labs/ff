@@ -16,10 +16,10 @@ Add the `ff_ce` crate to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-ff_ce = "0.6"
+ff_ce = "0.12"
 ```
 
-The `ff_ce` crate contains `Field`, `PrimeField`, `PrimeFieldRepr` and `SqrtField` traits. See the **[documentation](https://docs.rs/ff/0.4.0/ff/)** for more.
+The `ff_ce` crate contains `Field`, `PrimeField`, `PrimeFieldRepr` and `SqrtField` traits. See the **[documentation](https://docs.rs/ff_ce/)** for more.
 
 ### #![derive(PrimeField)]
 
