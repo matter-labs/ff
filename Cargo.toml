@@ -18,9 +18,9 @@ exclude = [
 
 [dependencies]
 byteorder = "1"
-rand = "0.4"
-ff_derive_ce = { version = "0.10.*", optional = true }
-# ff_derive_ce = { path = "ff_derive", optional = true }
+rand = "0.8"
+# ff_derive_ce = { version = "0.10.*", optional = true }
+ff_derive_ce = { path = "ff_derive", optional = true }
 hex = {version = "0.4"}
 
 [features]
