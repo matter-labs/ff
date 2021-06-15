@@ -2,8 +2,9 @@
 #![cfg_attr(feature = "asm_derive", feature(asm))]
 
 extern crate byteorder;
-extern crate rand;
 extern crate hex as hex_ext;
+extern crate rand;
+use rand::distributions::{Distribution, Standard};
 pub mod hex {
     pub use hex_ext::*;
 }
@@ -22,7 +23,9 @@ use std::io::{self, Read, Write};
 
 /// This trait represents an element of a field.
 pub trait Field:
-    Sized + Eq + Copy + Clone + Send + Sync + fmt::Debug + fmt::Display + 'static + rand::Rand + hash::Hash + Default
+    Sized + Eq + Copy + Clone + Send + Sync + fmt::Debug + fmt::Display + 'static + hash::Hash + Default
+where
+    Standard: Distribution<Self>,
 {
     /// Returns the zero element of the field, the additive identity.
     fn zero() -> Self;
@@ -82,7 +85,10 @@ pub trait Field:
 }
 
 /// This trait represents an element of a field that has a square root operation described for it.
-pub trait SqrtField: Field {
+pub trait SqrtField: Field
+where
+    Standard: Distribution<Self>,
+{
     /// Returns the Legendre symbol of the field element.
     fn legendre(&self) -> LegendreSymbol;
 
@@ -106,11 +112,12 @@ pub trait PrimeFieldRepr:
     + fmt::Debug
     + fmt::Display
     + 'static
-    + rand::Rand
     + AsRef<[u64]>
     + AsMut<[u64]>
     + From<u64>
     + hash::Hash
+where
+    Standard: Distribution<Self>,
 {
     /// Subtract another represetation from this one.
     fn sub_noborrow(&mut self, other: &Self);
@@ -224,7 +231,11 @@ impl fmt::Display for PrimeFieldDecodingError {
 }
 
 /// This represents an element of a prime field.
-pub trait PrimeField: Field {
+pub trait PrimeField: Field
+where
+    Standard: Distribution<Self>,
+    Standard: Distribution<Self::Repr>,
+{
     /// The prime field can be converted back and forth into this biginteger
     /// representation.
     type Repr: PrimeFieldRepr + From<Self>;
@@ -306,7 +317,12 @@ pub trait PrimeField: Field {
 /// An "engine" is a collection of types (fields, elliptic curve groups, etc.)
 /// with well-defined relationships. Specific relationships (for example, a
 /// pairing-friendly curve) can be defined in a subtrait.
-pub trait ScalarEngine: Sized + 'static + Clone + Send + Sync + fmt::Debug {
+pub trait ScalarEngine: Sized + 'static + Clone + Send + Sync + fmt::Debug
+where
+    Standard: Distribution<Self>,
+    Standard: Distribution<Self::Fr>,
+    Standard: Distribution<<Self::Fr as PrimeField>::Repr>,
+{
     /// This is the scalar field of the engine's groups.
     type Fr: PrimeField + SqrtField;
 }
@@ -378,7 +394,6 @@ fn test_bit_iterator() {
     assert!(a.next().is_none());
 }
 
-
 #[test]
 fn test_bit_iterator_length() {
     let a = BitIterator::new([0xa953d79b83f6ab59, 0x6dea2059e200bd39]);
@@ -406,7 +421,10 @@ mod arith_impl {
     pub fn sbb(a: u64, b: u64, borrow: &mut u64) -> u64 {
         use std::num::Wrapping;
 
-        let tmp = (1u128 << 64).wrapping_add(u128::from(a)).wrapping_sub(u128::from(b)).wrapping_sub(u128::from(*borrow));
+        let tmp = (1u128 << 64)
+            .wrapping_add(u128::from(a))
+            .wrapping_sub(u128::from(b))
+            .wrapping_sub(u128::from(*borrow));
 
         *borrow = if tmp >> 64 == 0 { 1 } else { 0 };
 
@@ -419,7 +437,9 @@ mod arith_impl {
     pub fn adc(a: u64, b: u64, carry: &mut u64) -> u64 {
         use std::num::Wrapping;
 
-        let tmp = u128::from(a).wrapping_add(u128::from(b)).wrapping_add(u128::from(*carry));
+        let tmp = u128::from(a)
+            .wrapping_add(u128::from(b))
+            .wrapping_add(u128::from(*carry));
 
         *carry = (tmp >> 64) as u64;
 
@@ -432,7 +452,9 @@ mod arith_impl {
     pub fn mac_with_carry(a: u64, b: u64, c: u64, carry: &mut u64) -> u64 {
         use std::num::Wrapping;
 
-        let tmp = (u128::from(a)).wrapping_add(u128::from(b).wrapping_mul(u128::from(c))).wrapping_add(u128::from(*carry));
+        let tmp = (u128::from(a))
+            .wrapping_add(u128::from(b).wrapping_mul(u128::from(c)))
+            .wrapping_add(u128::from(*carry));
 
         *carry = (tmp >> 64) as u64;
 
@@ -484,7 +506,12 @@ mod arith_impl {
     }
 
     #[inline(always)]
-    pub fn mul_double_add_add_carry_by_value(a: u64, b: u64, c: u64, carry: u64) -> (u64, u64, u64) {
+    pub fn mul_double_add_add_carry_by_value(
+        a: u64,
+        b: u64,
+        c: u64,
+        carry: u64,
+    ) -> (u64, u64, u64) {
         // multiply
         let tmp = (b as u128) * (c as u128);
         // doulbe
@@ -500,7 +527,12 @@ mod arith_impl {
     }
 
     #[inline(always)]
-    pub fn mul_double_add_add_carry_by_value_ignore_superhi(a: u64, b: u64, c: u64, carry: u64) -> (u64, u64) {
+    pub fn mul_double_add_add_carry_by_value_ignore_superhi(
+        a: u64,
+        b: u64,
+        c: u64,
+        carry: u64,
+    ) -> (u64, u64) {
         // multiply
         let tmp = (b as u128) * (c as u128);
         // doulbe
@@ -515,7 +547,12 @@ mod arith_impl {
     }
 
     #[inline(always)]
-    pub fn mul_double_add_low_and_high_carry_by_value(b: u64, c: u64, lo_carry: u64, hi_carry: u64) -> (u64, u64, u64) {
+    pub fn mul_double_add_low_and_high_carry_by_value(
+        b: u64,
+        c: u64,
+        lo_carry: u64,
+        hi_carry: u64,
+    ) -> (u64, u64, u64) {
         // multiply
         let tmp = (b as u128) * (c as u128);
         // doulbe
@@ -525,13 +562,19 @@ mod arith_impl {
         let hi = hi << 1 | lo >> 63;
         let lo = lo << 1;
         // add
-        let tmp = (lo as u128) + ((hi as u128) << 64) + (lo_carry as u128) + ((hi_carry as u128) << 64);
+        let tmp =
+            (lo as u128) + ((hi as u128) << 64) + (lo_carry as u128) + ((hi_carry as u128) << 64);
 
         (tmp as u64, (tmp >> 64) as u64, superhi)
     }
 
     #[inline(always)]
-    pub fn mul_double_add_low_and_high_carry_by_value_ignore_superhi(b: u64, c: u64, lo_carry: u64, hi_carry: u64) -> (u64, u64) {
+    pub fn mul_double_add_low_and_high_carry_by_value_ignore_superhi(
+        b: u64,
+        c: u64,
+        lo_carry: u64,
+        hi_carry: u64,
+    ) -> (u64, u64) {
         // multiply
         let tmp = (b as u128) * (c as u128);
         // doulbe
@@ -540,13 +583,20 @@ mod arith_impl {
         let hi = hi << 1 | lo >> 63;
         let lo = lo << 1;
         // add
-        let tmp = (lo as u128) + ((hi as u128) << 64) + (lo_carry as u128) + ((hi_carry as u128) << 64);
+        let tmp =
+            (lo as u128) + ((hi as u128) << 64) + (lo_carry as u128) + ((hi_carry as u128) << 64);
 
         (tmp as u64, (tmp >> 64) as u64)
     }
 
     #[inline(always)]
-    pub fn mul_double_add_add_low_and_high_carry_by_value(a: u64, b: u64, c: u64, lo_carry: u64, hi_carry: u64) -> (u64, u64, u64) {
+    pub fn mul_double_add_add_low_and_high_carry_by_value(
+        a: u64,
+        b: u64,
+        c: u64,
+        lo_carry: u64,
+        hi_carry: u64,
+    ) -> (u64, u64, u64) {
         // multiply
         let tmp = (b as u128) * (c as u128);
         // doulbe
@@ -556,13 +606,23 @@ mod arith_impl {
         let hi = hi << 1 | lo >> 63;
         let lo = lo << 1;
         // add
-        let tmp = (lo as u128) + ((hi as u128) << 64) + (a as u128) + (lo_carry as u128) + ((hi_carry as u128) << 64);
+        let tmp = (lo as u128)
+            + ((hi as u128) << 64)
+            + (a as u128)
+            + (lo_carry as u128)
+            + ((hi_carry as u128) << 64);
 
         (tmp as u64, (tmp >> 64) as u64, superhi)
     }
 
     #[inline(always)]
-    pub fn mul_double_add_add_low_and_high_carry_by_value_ignore_superhi(a: u64, b: u64, c: u64, lo_carry: u64, hi_carry: u64) -> (u64, u64) {
+    pub fn mul_double_add_add_low_and_high_carry_by_value_ignore_superhi(
+        a: u64,
+        b: u64,
+        c: u64,
+        lo_carry: u64,
+        hi_carry: u64,
+    ) -> (u64, u64) {
         // multiply
         let tmp = (b as u128) * (c as u128);
         // doulbe
@@ -571,25 +631,43 @@ mod arith_impl {
         let hi = hi << 1 | lo >> 63;
         let lo = lo << 1;
         // add
-        let tmp = (lo as u128) + ((hi as u128) << 64) + (a as u128) + (lo_carry as u128) + ((hi_carry as u128) << 64);
+        let tmp = (lo as u128)
+            + ((hi as u128) << 64)
+            + (a as u128)
+            + (lo_carry as u128)
+            + ((hi_carry as u128) << 64);
 
         (tmp as u64, (tmp >> 64) as u64)
     }
 
     #[inline(always)]
-    pub fn mac_with_low_and_high_carry_by_value(a: u64, b: u64, c: u64, lo_carry: u64, hi_carry: u64) -> (u64, u64) {
-        let tmp = ((b as u128) * (c as u128)) + (a as u128) + (lo_carry as u128) + ((hi_carry as u128) << 64);
+    pub fn mac_with_low_and_high_carry_by_value(
+        a: u64,
+        b: u64,
+        c: u64,
+        lo_carry: u64,
+        hi_carry: u64,
+    ) -> (u64, u64) {
+        let tmp = ((b as u128) * (c as u128))
+            + (a as u128)
+            + (lo_carry as u128)
+            + ((hi_carry as u128) << 64);
 
         (tmp as u64, (tmp >> 64) as u64)
     }
 }
 
-pub use to_hex::{to_hex, from_hex};
+pub use to_hex::{from_hex, to_hex};
 
 mod to_hex {
-    use super::{PrimeField, PrimeFieldRepr, hex_ext};
+    use super::{hex_ext, PrimeField, PrimeFieldRepr};
+    use rand::distributions::{Distribution, Standard};
 
-    pub fn to_hex<F: PrimeField>(el: &F) -> String {
+    pub fn to_hex<F: PrimeField>(el: &F) -> String
+    where
+        Standard: Distribution<F::Repr>,
+        Standard: Distribution<F>,
+    {
         let repr = el.into_repr();
         let required_length = repr.as_ref().len() * 8;
         let mut buf: Vec<u8> = Vec::with_capacity(required_length);
@@ -598,17 +676,33 @@ mod to_hex {
         hex_ext::encode(&buf)
     }
 
-    pub fn from_hex<F: PrimeField>(value: &str) -> Result<F, String> {
-        let value = if value.starts_with("0x") { &value[2..] } else { value };
-        if value.len() % 2 != 0 {return Err(format!("hex length must be even for full byte encoding: {}", value))}
-        let mut buf = hex_ext::decode(&value).map_err(|_| format!("could not decode hex: {}", value))?;
+    pub fn from_hex<F: PrimeField>(value: &str) -> Result<F, String>
+    where
+        Standard: Distribution<F::Repr>,
+        Standard: Distribution<F>,
+    {
+        let value = if value.starts_with("0x") {
+            &value[2..]
+        } else {
+            value
+        };
+        if value.len() % 2 != 0 {
+            return Err(format!(
+                "hex length must be even for full byte encoding: {}",
+                value
+            ));
+        }
+        let mut buf =
+            hex_ext::decode(&value).map_err(|_| format!("could not decode hex: {}", value))?;
         let mut repr = F::Repr::default();
         let required_length = repr.as_ref().len() * 8;
         buf.reverse();
         buf.resize(required_length, 0);
 
-        repr.read_le(&buf[..]).map_err(|e| format!("could not read {}: {}", value, &e))?;
+        repr.read_le(&buf[..])
+            .map_err(|e| format!("could not read {}: {}", value, &e))?;
 
-        F::from_repr(repr).map_err(|e| format!("could not convert into prime field: {}: {}", value, &e))
+        F::from_repr(repr)
+            .map_err(|e| format!("could not convert into prime field: {}: {}", value, &e))
     }
 }

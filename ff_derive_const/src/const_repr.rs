@@ -32,9 +32,8 @@ impl<const N: usize> std::fmt::Debug for BigintRepresentation<{N}>
     }
 }
 
-impl<const N: usize> ::rand::Rand for BigintRepresentation<{N}> {
-    #[inline(always)]
-    fn rand<R: ::rand::Rng>(rng: &mut R) -> Self {
+impl rand::distributions::Distribution<BigintRepresentation<{N}>> for rand::distributions::Standard {
+    fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> BigintRepresentation<{N}> {
         let mut s = Self::default();
         for el in s.0.iter_mut() {
             *el = rng.gen();
