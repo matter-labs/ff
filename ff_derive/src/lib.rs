@@ -163,9 +163,7 @@ fn fetch_attr(name: &str, attrs: &[syn::Attribute]) -> Option<String> {
                         }
                     }
                 }
-                _ => {
-                    panic!("attribute {} should be a string", name);
-                }
+                _ => continue
             }
         }
     }
