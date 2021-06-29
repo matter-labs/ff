@@ -4,6 +4,7 @@
 extern crate byteorder;
 extern crate rand;
 extern crate hex as hex_ext;
+use rand::distributions::{Distribution, Standard};
 pub mod hex {
     pub use hex_ext::*;
 }
@@ -20,9 +21,13 @@ use std::fmt;
 use std::hash;
 use std::io::{self, Read, Write};
 
+/// Backwards compatiablity Marker Rand trait
+pub trait Rand: Sized {}
+impl<T> Rand for T where Standard: Distribution<T> { }
+
 /// This trait represents an element of a field.
 pub trait Field:
-    Sized + Eq + Copy + Clone + Send + Sync + fmt::Debug + fmt::Display + 'static + rand::Rand + hash::Hash + Default
+    Sized + Eq + Copy + Clone + Send + Sync + fmt::Debug + fmt::Display + 'static + Rand + hash::Hash + Default
 {
     /// Returns the zero element of the field, the additive identity.
     fn zero() -> Self;
@@ -106,7 +111,7 @@ pub trait PrimeFieldRepr:
     + fmt::Debug
     + fmt::Display
     + 'static
-    + rand::Rand
+    + Rand
     + AsRef<[u64]>
     + AsMut<[u64]>
     + From<u64>

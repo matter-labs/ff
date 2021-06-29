@@ -37,9 +37,9 @@ const NEGATIVE_ONE: Fs = Fs(FsRepr([0xaa9f02ab1d6124de, 0xb3524a6466112932, 0x73
 #[derive(Copy, Clone, PartialEq, Eq, Default, Debug, Hash)]
 pub struct FsRepr(pub [u64; 4]);
 
-impl ::rand::Rand for FsRepr {
+impl ::rand::distributions::Distribution<FsRepr> for ::rand::distributions::Standard {
     #[inline(always)]
-    fn rand<R: ::rand::Rng>(rng: &mut R) -> Self {
+    fn rand<R: ::rand::Rng>(rng: &mut R) -> FsRepr {
         FsRepr(rng.gen())
     }
 }
@@ -235,10 +235,10 @@ impl ::std::fmt::Display for Fs
     }
 }
 
-impl ::rand::Rand for Fs {
+impl ::rand::distributions::Distribution<Fs> for ::rand::distributions::Standard {
     fn rand<R: ::rand::Rng>(rng: &mut R) -> Self {
         loop {
-            let mut tmp = Fs(FsRepr::rand(rng));
+            let mut tmp = Fs(::rand::distributions::Standard.sample(rng));
 
             // Mask away the unused bits at the beginning.
             tmp.0.as_mut()[3] &= 0xffffffffffffffff >> REPR_SHAVE_BITS;

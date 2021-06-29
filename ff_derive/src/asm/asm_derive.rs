@@ -105,9 +105,14 @@ pub fn prime_field_asm_impl(input: proc_macro::TokenStream) -> proc_macro::Token
 
 // Implement PrimeFieldRepr for the wrapped ident `repr` with `limbs` limbs.
 fn prime_field_repr_impl(repr: &syn::Ident, limbs: usize) -> proc_macro2::TokenStream {
+    let derive = if cfg!(feature = "serde") {
+        quote! { #[derive(Copy, Clone, PartialEq, Eq, Default, ::serde::Serialize, ::serde::Deserialize)] }
+    } else {
+        quote! { #[derive(Copy, Clone, PartialEq, Eq, Default)] }
+    };
     quote! {
 
-        #[derive(Copy, Clone, PartialEq, Eq, Default)]
+        #derive
         pub struct #repr(
             pub [u64; #limbs]
         );
@@ -124,9 +129,9 @@ fn prime_field_repr_impl(repr: &syn::Ident, limbs: usize) -> proc_macro2::TokenS
             }
         }
 
-        impl ::rand::Rand for #repr {
+        impl ::rand::distributions::Distribution<#repr> for ::rand::distributions::Standard {
             #[inline(always)]
-            fn rand<R: ::rand::Rng>(rng: &mut R) -> Self {
+            fn rand<R: ::rand::Rng>(rng: &mut R) -> #repr {
                 #repr(rng.gen())
             }
         }
@@ -662,11 +667,11 @@ fn prime_field_impl(
             }
         }
 
-        impl ::rand::Rand for #name {
+        impl ::rand::distributions::Distribution<#name> for ::rand::distributions::Standard {
             /// Computes a uniformly random element using rejection sampling.
-            fn rand<R: ::rand::Rng>(rng: &mut R) -> Self {
+            fn rand<R: ::rand::Rng>(rng: &mut R) -> #name {
                 loop {
-                    let mut tmp = #name(#repr::rand(rng));
+                    let mut tmp = #name(::rand::distributions::Standard.sample(rng));
 
                     // Mask away the unused bits at the beginning.
                     tmp.0.as_mut()[#top_limb_index] &= 0xffffffffffffffff >> REPR_SHAVE_BITS;

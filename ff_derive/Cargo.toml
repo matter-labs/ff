@@ -25,3 +25,4 @@ syn = "1"
 [features]
 default = []
 asm = []
+serde = []
